@@ -139,32 +139,46 @@
 
         let currentVoice = null;
 
-        function uranau() {
+       function uranau() {
             const display = document.getElementById('display');
             const btn = document.getElementById('btn');
             const nameText = document.getElementById('name');
             const descText = document.getElementById('desc');
             
+            // 次に表示するカードを「ボタンを押した瞬間」に決めてしまう
+            const result = cards[Math.floor(Math.random() * cards.length)];
+            
+            // 裏側で画像を先に読み込ませておく（これで表示の瞬間のラグを消す）
+            const preloadImg = new Image();
+            preloadImg.src = `${result.id}.png`;
+
+            // iPhone対策
+            [soundWin, soundBGM].forEach(s => {
+                s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(() => {});
+            });
+
             btn.disabled = true;
             nameText.innerText = "運命を占い中...";
             descText.innerText = "深呼吸してお待ちください...";
             
-            // 抽選中も back.png を表示
-            display.innerHTML = `<img src="back.png" onerror="this.parentElement.innerHTML='🃏'">`;
+            display.innerHTML = `<img src="back.png">`;
             display.classList.add('shuffling');
 
             if(currentVoice) { currentVoice.pause(); currentVoice.currentTime = 0; }
             soundBGM.pause(); soundBGM.currentTime = 0;
-            soundRoll.currentTime = 0; soundRoll.play();
+            soundRoll.currentTime = 0;
+            soundRoll.play().catch(() => {});
 
+            // シャッフル時間が終わった瞬間の処理
             setTimeout(() => {
-                soundRoll.pause(); soundWin.currentTime = 0; soundWin.play();
+                soundRoll.pause();
+                soundWin.play().catch(() => {});
+                
                 display.classList.remove('shuffling');
                 display.classList.add('decided');
 
-                const result = cards[Math.floor(Math.random() * cards.length)];
+                // ここで準備しておいたカードを出す（既に読み込み済みなので一瞬で出ます）
                 display.innerHTML = `<img src="${result.id}.png" onerror="this.parentElement.innerHTML='🃏'">`;
-                
                 nameText.innerText = "✨ " + result.name + " ✨";
                 descText.innerText = result.msg;
 
@@ -173,7 +187,9 @@
                     currentVoice.play().catch(e => console.log("音声なし"));
                 }, CONFIG.timing.voiceDelay);
 
-                setTimeout(() => { soundBGM.play(); }, CONFIG.timing.bgmDelay);
+                setTimeout(() => { 
+                    soundBGM.play().catch(e => console.log("BGMブロック")); 
+                }, CONFIG.timing.bgmDelay);
                 
                 setTimeout(() => { display.classList.remove('decided'); btn.disabled = false; }, 1000);
             }, CONFIG.timing.shuffleDuration); 
