@@ -38,6 +38,7 @@
             timing: { shuffleDuration: 2500, voiceDelay: 1000, bgmDelay: 1500 }
         };
 
+        // 音源の定義（ここではまだ再生しない）
         const soundRoll = new Audio('roll.mp3');
         const soundWin = new Audio('win.mp3'); 
         const soundBGM = new Audio('bgm.mp3'); 
@@ -131,34 +132,20 @@
             const nameText = document.getElementById('name');
             const descText = document.getElementById('desc');
             
+            // カード決定と画像プリロード
             const result = cards[Math.floor(Math.random() * cards.length)];
             const preloadImg = new Image();
             preloadImg.src = `${result.id}.png`;
 
-            // 【音ズレ解消の究極策】
-            // 1. 全ての音を「無音(volume=0)」にする
-            soundRoll.volume = 0;
-            soundWin.volume = 0;
-            soundBGM.volume = 0;
+            // 【音ズレの根本対策】
+            // ユーザーがボタンを押した瞬間に「まずroll.mp3だけ」を音量設定して再生する
+            soundRoll.volume = CONFIG.volume.roll;
+            soundRoll.currentTime = 0;
+            soundRoll.play().catch(() => {});
 
-            // 2. この瞬間に再生を開始して、iPadの再生許可をもらう
-            // （無音なので先出し音は聞こえません）
-            const unlockSounds = [soundRoll, soundWin, soundBGM].map(s => s.play());
-
-            Promise.all(unlockSounds).then(() => {
-                // 3. 許可が取れたら、一度止めて準備完了
-                soundRoll.pause(); soundRoll.currentTime = 0;
-                soundWin.pause(); soundWin.currentTime = 0;
-                soundBGM.pause(); soundBGM.currentTime = 0;
-
-                // 4. 改めて「抽選音」だけ音量を戻して再生
-                soundRoll.volume = CONFIG.volume.roll;
-                soundRoll.play().catch(() => {});
-            }).catch(() => {
-                // 万が一失敗しても抽選音だけはトライする
-                soundRoll.volume = CONFIG.volume.roll;
-                soundRoll.play().catch(() => {});
-            });
+            // このタイミングで、後で鳴らす音(Win/BGM)の再生「許可」だけ取っておく(再生はしない)
+            soundWin.load();
+            soundBGM.load();
 
             btn.disabled = true;
             nameText.innerText = "運命を占い中...";
@@ -168,27 +155,30 @@
             display.classList.add('shuffling');
 
             if(currentVoice) { currentVoice.pause(); currentVoice.currentTime = 0; }
+            soundBGM.pause();
 
-            // 抽選終了後の処理
+            // 指定秒数後にシャッフル終了
             setTimeout(() => {
+                // シャッフル音を止め、当選音を鳴らす
                 soundRoll.pause(); 
-                
-                // 【正しいタイミングで音量を戻して鳴らす】
                 soundWin.volume = CONFIG.volume.win;
                 soundWin.play().catch(() => {});
                 
                 display.classList.remove('shuffling');
-                display.classList.add('decided');
+                display.classList.add('decided'); // 光の演出
 
+                // カード表示
                 display.innerHTML = `<img src="${result.id}.png" onerror="this.parentElement.innerHTML='🃏'">`;
                 nameText.innerText = "✨ " + result.name + " ✨";
                 descText.innerText = result.msg;
 
+                // 読み上げ
                 setTimeout(() => {
                     currentVoice = new Audio(`voice/${result.id}.wav`);
                     currentVoice.play().catch(e => console.log("音声なし"));
                 }, CONFIG.timing.voiceDelay);
 
+                // BGM開始
                 setTimeout(() => { 
                     soundBGM.volume = CONFIG.volume.bgm;
                     soundBGM.play().catch(e => console.log("BGMブロック")); 
