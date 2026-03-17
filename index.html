@@ -10,55 +10,17 @@
     <style>
         body { background-color: #0b0e14; color: #d4af37; text-align: center; font-family: "Hiragino Mincho ProN", "MS PMincho", serif; padding-top: 20px; margin: 0; }
         h1 { font-size: 28px; letter-spacing: 3px; margin-bottom: 10px; }
-        
-        .card-area { 
-            width: 380px; height: 608px; 
-            border: 3px solid #d4af37; 
-            margin: 15px auto; 
-            border-radius: 18px; 
-            background-color: #1a1a2e; 
-            display: flex; align-items: center; justify-content: center; 
-            font-size: 100px; position: relative; transition: 0.3s; 
-            overflow: hidden; 
-            box-shadow: 0 0 30px rgba(212, 175, 55, 0.3); 
-        }
-
-        /* 抽選中の震え */
+        .card-area { width: 380px; height: 608px; border: 3px solid #d4af37; margin: 15px auto; border-radius: 18px; background-color: #1a1a2e; display: flex; align-items: center; justify-content: center; font-size: 100px; position: relative; transition: 0.3s; overflow: hidden; box-shadow: 0 0 30px rgba(212, 175, 55, 0.3); }
         .shuffling { animation: shuffle-shake 0.1s infinite; border-color: #fff; }
         @keyframes shuffle-shake { 0% { transform: translate(0,0); } 50% { transform: translate(-3px, 2px); } 100% { transform: translate(3px, -2px); } }
-
-        /* 当選時の光の演出（オーバーレイ） */
-        .card-area.decided::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(212,175,55,0.8) 40%, rgba(11,14,20,0) 70%);
-            opacity: 0;
-            animation: flash-light 0.7s ease-out;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        @keyframes flash-light {
-            0% { opacity: 0; transform: scale(0.5); }
-            20% { opacity: 1; transform: scale(1.2); }
-            100% { opacity: 0; transform: scale(1); }
-        }
-
+        .card-area.decided::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(212,175,55,0.8) 40%, rgba(11,14,20,0) 70%); opacity: 0; animation: flash-light 0.7s ease-out; pointer-events: none; z-index: 10; }
+        @keyframes flash-light { 0% { opacity: 0; transform: scale(0.5); } 20% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(1); } }
         img { width: 100%; height: 100%; object-fit: cover; }
-        
-        button { 
-            background: linear-gradient(#d4af37, #aa8412); color: black; 
-            padding: 15px 45px; font-size: 22px; font-weight: bold; 
-            border: none; border-radius: 50px; cursor: pointer; 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5); margin-top: 10px; 
-        }
+        button { background: linear-gradient(#d4af37, #aa8412); color: black; padding: 15px 45px; font-size: 22px; font-weight: bold; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.5); margin-top: 10px; }
         button:hover { filter: brightness(1.1); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
-        
         #name { font-size: 24px; margin: 15px 0 5px; }
         #desc { font-size: 18px; color: #eee; margin-top: 0; padding: 0 30px; min-height: 3em; line-height: 1.6; }
-        
         @media (max-width: 450px) { .card-area { width: 90vw; height: 144vw; } }
     </style>
 </head>
@@ -73,12 +35,7 @@
     <script>
         const CONFIG = {
             volume: { roll: 0.3, win: 0.3, bgm: 0.15 },
-            timing: { 
-                shuffleDuration: 2500,
-                voiceDelay: 1000, 
-                bgmDelay: 1500, 
-                specialReset: 2000 
-            }
+            timing: { shuffleDuration: 2500, voiceDelay: 1000, bgmDelay: 1500 }
         };
 
         const soundRoll = new Audio('roll.mp3');
@@ -177,16 +134,18 @@
             const nameText = document.getElementById('name');
             const descText = document.getElementById('desc');
             
-            // 1. 先にカードを決定
+            // 次のカードの決定とプリロード
             const result = cards[Math.floor(Math.random() * cards.length)];
-            
-            // 2. 裏側で画像をプリロード（タイムラグ解消）
             const preloadImg = new Image();
             preloadImg.src = `${result.id}.png`;
 
-            // 3. iOS音響制限解除
+            // 【音ズレ解消の肝】音源を一度だけ「無音」で鳴らしてiPadのロックを解除する。
+            // 順番待ちさせず、再生許可だけを即座に奪い取る
             [soundWin, soundBGM].forEach(s => {
-                s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(() => {});
+                s.play().then(() => { 
+                    s.pause(); 
+                    s.currentTime = 0; 
+                }).catch(() => {});
             });
 
             btn.disabled = true;
@@ -198,19 +157,18 @@
 
             if(currentVoice) { currentVoice.pause(); currentVoice.currentTime = 0; }
             soundBGM.pause(); soundBGM.currentTime = 0;
+            
+            // 抽選音をスタート
             soundRoll.currentTime = 0;
             soundRoll.play().catch(() => {});
 
-            // シャッフル終了後の処理
             setTimeout(() => {
-                soundRoll.pause();
-                soundWin.play().catch(() => {});
+                soundRoll.pause(); 
+                soundWin.play().catch(() => {}); // ここで正しいタイミングで当選音が鳴る
                 
                 display.classList.remove('shuffling');
-                // 【光の演出開始】
                 display.classList.add('decided');
 
-                // 4. 画像を瞬時に表示
                 display.innerHTML = `<img src="${result.id}.png" onerror="this.parentElement.innerHTML='🃏'">`;
                 nameText.innerText = "✨ " + result.name + " ✨";
                 descText.innerText = result.msg;
@@ -224,40 +182,11 @@
                     soundBGM.play().catch(e => console.log("BGMブロック")); 
                 }, CONFIG.timing.bgmDelay);
                 
-                // 光の演出が終わるまで待機してからボタンを復活
                 setTimeout(() => { 
                     display.classList.remove('decided'); 
                     btn.disabled = false; 
                 }, 700); 
             }, CONFIG.timing.shuffleDuration); 
-        }
-
-        // --- 振動検知 ---
-        const specialCard = { name: "運命の裏側", img: "back.png", msg: "特別な力が働いています。" };
-        const SHAKE_THRESHOLD = 15;
-        let lastX, lastY, lastZ;
-
-        window.addEventListener('devicemotion', (event) => {
-            const acc = event.accelerationIncludingGravity;
-            if (!acc || !acc.x || !acc.y || !acc.z) return;
-            if (lastX !== undefined) {
-                let delta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
-                if (delta > SHAKE_THRESHOLD && !document.getElementById('btn').disabled) {
-                    showSpecialCard();
-                }
-            }
-            lastX = acc.x; lastY = acc.y; lastZ = acc.z;
-        });
-
-        function showSpecialCard() {
-            const display = document.getElementById('display');
-            const nameText = document.getElementById('name');
-            const descText = document.getElementById('desc');
-            display.classList.add('decided');
-            display.innerHTML = `<img src="${specialCard.img}">`;
-            nameText.innerText = "✨ " + specialCard.name + " ✨";
-            descText.innerText = specialCard.msg;
-            setTimeout(() => { display.classList.remove('decided'); }, CONFIG.timing.specialReset);
         }
     </script>
 </body>
