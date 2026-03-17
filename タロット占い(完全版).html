@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>究極・78枚フルデッキタロット（完全版）</title>
+    <style>
+        body { background-color: #0b0e14; color: #d4af37; text-align: center; font-family: "Hiragino Mincho ProN", "MS PMincho", serif; padding-top: 20px; margin: 0; }
+        h1 { font-size: 28px; letter-spacing: 3px; margin-bottom: 10px; }
+        .card-area { width: 380px; height: 608px; border: 3px solid #d4af37; margin: 15px auto; border-radius: 18px; background-color: #1a1a2e; display: flex; align-items: center; justify-content: center; font-size: 100px; position: relative; transition: 0.3s; overflow: hidden; box-shadow: 0 0 30px rgba(212, 175, 55, 0.3); }
+        .shuffling { animation: shuffle-shake 0.1s infinite; border-color: #fff; }
+        @keyframes shuffle-shake { 0% { transform: translate(0,0); } 50% { transform: translate(-3px, 2px); } 100% { transform: translate(3px, -2px); } }
+        .decided { animation: flash-effect 0.6s ease-out; }
+        @keyframes flash-effect { 0% { filter: brightness(3); transform: scale(1.05); } 100% { filter: brightness(1); transform: scale(1); } }
+        img { width: 100%; height: 100%; object-fit: cover; }
+        button { background: linear-gradient(#d4af37, #aa8412); color: black; padding: 15px 45px; font-size: 22px; font-weight: bold; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.5); margin-top: 10px; }
+        button:hover { filter: brightness(1.1); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #name { font-size: 24px; margin: 15px 0 5px; }
+        #desc { font-size: 18px; color: #eee; margin-top: 0; padding: 0 30px; min-height: 3em; line-height: 1.6; }
+        @media (max-width: 450px) { .card-area { width: 90vw; height: 144vw; } }
+    </style>
+</head>
+<body>
+
+    <h1>🌙 猫が導くタロット占い 🌙</h1>
+    <div class="card-area" id="display"><img src="back.png" onerror="this.parentElement.innerHTML='🃏'"></div>
+    <h2 id="name">運命をシャッフル</h2>
+    <p id="desc">心の中で知りたいことを思い浮かべて、<br>ボタンを押してください。</p>
+    <button id="btn" onclick="uranau()">運命の1枚を引く</button>
+
+    <script>
+        // ==========================================================
+        // 【設定エリア】ここを書き換えて調整してください
+        // ==========================================================
+        const CONFIG = {
+            volume: {
+                roll: 0.3,  // シャッフル中の音量 (0.0〜1.0)
+                win: 0.3,   // 結果表示の音量 (0.0〜1.0)
+                bgm: 0.15   // BGMの音量 (0.0〜1.0)
+            },
+            timing: {
+                shuffleDuration: 2500, // 占っている時間 (ミリ秒)
+                voiceDelay: 1000,      // 音声が流れるまでの遅延 (ミリ秒)
+                bgmDelay: 1000,         // BGMが流れ始める遅延 (ミリ秒)
+                specialReset: 2000     // 振動カードを表示しておく時間 (ミリ秒)
+            }
+        };
+
+        const soundRoll = new Audio('roll.mp3');
+        const soundWin = new Audio('win.mp3'); 
+        const soundBGM = new Audio('bgm.mp3'); 
+        soundRoll.volume = CONFIG.volume.roll;
+        soundWin.volume = CONFIG.volume.win;
+        soundBGM.volume = CONFIG.volume.bgm;
+
+        const cards = [
+            { id: 0, name: "愚者", msg: "自由な精神で新しい旅へ！直感を信じて進んで。" },
+            { id: 1, name: "魔術師", msg: "準備は整いました。あなたの才能で道を切り拓いて。" },
+            { id: 2, name: "女教皇", msg: "静かに自分の内側の声に耳を傾けるべき時です。" },
+            { id: 3, name: "女帝", msg: "愛と豊かさが実を結びます。心穏やかな実りを。" },
+            { id: 4, name: "皇帝", msg: "強い意志と実行力が成功を呼びます。自信を持って。" },
+            { id: 5, name: "法王", msg: "伝統や信頼が鍵。尊敬できる人の助言に従ってみて。" },
+            { id: 6, name: "恋人", msg: "ワクワクする選択。あなたの心がときめく方を選んで。" },
+            { id: 7, name: "戦車", msg: "迷わず突き進んで。勝利は目前、スピードが大切です。" },
+            { id: 8, name: "力", msg: "忍耐強さと優しさが、困難を乗り越える力になります。" },
+            { id: 9, name: "隠者", msg: "一人の時間を大切に。真実は自分の中にあります。" },
+            { id: 10, name: "運命の輪", msg: "幸運の波が来ています！変化をチャンスに変えて。" },
+            { id: 11, name: "正義", msg: "冷静で誠実な判断ができる時。バランスを大切に。" },
+            { id: 12, name: "吊るされた男", msg: "今は視点を変える時。焦らず時が満ちるのを待って。" },
+            { id: 13, name: "死神", msg: "何かが終わり、新しい自分に生まれ変わる時です。" },
+            { id: 14, name: "節制", msg: "心と体の調和を。穏やかな流れが幸運を呼びます。" },
+            { id: 15, name: "悪魔", msg: "甘い誘惑に注意。本当に自分に必要なものを見極めて。" },
+            { id: 16, name: "塔", msg: "衝撃の変化。でもそれは新しい土台を作るための好機。" },
+            { id: 17, name: "星", msg: "希望の光が見えます。あなたの願いはもうすぐ届きます。" },
+            { id: 18, name: "月", msg: "不安な時は無理をせず、夜が明けるのを静かに待って。" },
+            { id: 19, name: "太陽", msg: "大成功と祝福！最高にポジティブなエネルギーが満載。" },
+            { id: 20, name: "審判", msg: "過去の努力が報われます。復活と再燃のチャンス。" },
+            { id: 21, name: "世界", msg: "最高の結末！すべてが完璧に整い、達成感を味わえます。" },
+            { id: 22, name: "ワンドのエース", msg: "情熱の始まり。新しい企画や挑戦にワクワクして！" },
+            { id: 23, name: "ワンドの2", msg: "次のステップを計画する時。広い世界へ目を向けて。" },
+            { id: 24, name: "ワンドの3", msg: "さらなる発展。あなたの努力は確実に広がっています。" },
+            { id: 25, name: "ワンドの4", msg: "ひと休みして喜びを分かち合いましょう。平和な時間。" },
+            { id: 26, name: "ワンドの5", msg: "切磋琢磨。ぶつかり合いもあなたの成長の糧になります。" },
+            { id: 27, name: "ワンドの6", msg: "勝利と称賛！あなたの功績がみんなに認められます。" },
+            { id: 28, name: "ワンドの7", msg: "踏ん張りどころ。今の有利な立場を守り抜いて。" },
+            { id: 29, name: "ワンドの8", msg: "急展開！状況がスピーディーに動き出す予感です。" },
+            { id: 30, name: "ワンドの9", msg: "備えあれば憂いなし。最後まで油断せずやり抜こう。" },
+            { id: 31, name: "ワンドの10", msg: "責任感が強い時。一人で抱え込まず、少し手放して。" },
+            { id: 32, name: "ワンドのペイジ", msg: "ワクワクする知らせ。純粋な好奇心に従ってみて。" },
+            { id: 33, name: "ワンドのナイト", msg: "勇気ある前進！真っ直ぐに目的へ突き進む時です。" },
+            { id: 34, name: "ワンドのクイーン", msg: "自信と情熱。周りを明るくするリーダーシップを。" },
+            { id: 35, name: "ワンドのキング", msg: "確固たる成功。情熱を持って大胆に導いて。" },
+            { id: 36, name: "カップのエース", msg: "溢れ出す喜び。新しい愛や幸せが心に満たされます。" },
+            { id: 37, name: "カップの2", msg: "心を通わせる。大切な人との絆がより深まる時。" },
+            { id: 38, name: "カップの3", msg: "仲間との祝杯。楽しい時間を共に過ごしましょう。" },
+            { id: 39, name: "カップの4", msg: "考え込みすぎ。目の前にある幸運に気づいて。" },
+            { id: 40, name: "カップの5", msg: "失ったものより、残っているものの価値に目を向けて。" },
+            { id: 41, name: "カップの6", msg: "懐かしい思い出。過去の純粋な気持ちがヒントに。" },
+            { id: 42, name: "カップの7", msg: "夢見がち。どれか一つに絞る勇気を持って。" },
+            { id: 43, name: "カップの8", msg: "次へ進む時。今の場所を離れて新しい価値を求めて。" },
+            { id: 44, name: "カップの9", msg: "願いが叶う！満足感に包まれるラッキーな予感。" },
+            { id: 45, name: "カップの10", msg: "家族や愛する人との幸せ。最高の心の平和。" },
+            { id: 46, name: "カップのペイジ", msg: "感受性豊かな時。想像力を自由に広げてみて。" },
+            { id: 47, name: "カップのナイト", msg: "愛の告白や良い誘い。誠実な心を受け取って。" },
+            { id: 48, name: "カップのクイーン", msg: "深い包容力。周りを癒やす慈しみの心を大切に。" },
+            { id: 49, name: "カップのキング", msg: "穏やかな権威。感情をコントロールし、寛大に。" },
+            { id: 50, name: "ソードのエース", msg: "勝利への決断。鋭い知性で道を切り開きましょう。" },
+            { id: 51, name: "ソードの2", msg: "決断を保留中。今はバランスを見守るべき時かも。" },
+            { id: 52, name: "ソードの3", msg: "心の痛み。成長のための必要なプロセスです。" },
+            { id: 53, name: "ソードの4", msg: "休息と癒やし。今は何もせず、じっくり体力を温存して。" },
+            { id: 54, name: "ソードの5", msg: "勝利の虚しさ。強引さより歩み寄りを考えて。" },
+            { id: 55, name: "ソードの6", msg: "困難からの脱出。より良い方向へ静かに移動して。" },
+            { id: 56, name: "ソードの7", msg: "慎重な行動を。正攻法以外も検討する価値あり。" },
+            { id: 57, name: "ソードの8", msg: "思い込みの縛り。目隠しを外せば自由になれます。" },
+            { id: 58, name: "ソードの9", msg: "夜の悩み。考えすぎは禁物、まずはゆっくり寝て。" },
+            { id: 59, name: "ソードの10", msg: "どん底。あとは上がるだけ。新しい夜明けはすぐそこ。" },
+            { id: 60, name: "ソードのペイジ", msg: "警戒と鋭敏さ。情報を集めて冷静に分析して。" },
+            { id: 61, name: "ソードのナイト", msg: "知的な勇猛さ。恐れず理論で立ち向かって。" },
+            { id: 62, name: "ソードのクイーン", msg: "理性的でクールな判断。甘えを捨てて誠実に。" },
+            { id: 63, name: "ソードのキング", msg: "正義と理性の支配。公明正大なリーダー。" },
+            { id: 64, name: "ペンタクルのエース", msg: "現実的な成功。新しい収入や安定のチャンス。" },
+            { id: 65, name: "ペンタクルの2", msg: "柔軟な対応。変化を楽しみながら乗りこなして。" },
+            { id: 66, name: "ペンタクルの3", msg: "チームワークの成果。あなたの技術が高く評価されます。" },
+            { id: 67, name: "ペンタクルの4", msg: "保守的。守ることも大切ですが、少し柔軟に。" },
+            { id: 68, name: "ペンタクルの5", msg: "一時的な窮乏。助けを求めれば近くに手が差し出されます。" },
+            { id: 69, name: "ペンタクルの6", msg: "分かち合い。得たものを循環させると幸運が倍増。" },
+            { id: 70, name: "ペンタクルの7", msg: "収穫待ち。これまでの努力を振り返り、調整して。" },
+            { id: 71, name: "ペンタクルの8", msg: "コツコツした修行。日々の努力が技術を作ります。" },
+            { id: 72, name: "ペンタクルの9", msg: "洗練された自立。豊かな時間を一人でも楽しめます。" },
+            { id: 73, name: "ペンタクルの10", msg: "永続的な繁栄。代々受け継がれるような安定と幸福。" },
+            { id: 74, name: "ペンタクルのペイジ", msg: "着実な学び。小さなチャンスを大切に育てて。" },
+            { id: 75, name: "ペンタクルのナイト", msg: "信頼と責任。地道な一歩が確実なゴールへ導きます。" },
+            { id: 76, name: "ペンタクルのクイーン", msg: "母性的で現実的な慈愛。環境を心地よく整えて。" },
+            { id: 77, name: "ペンタクルのキング", msg: "実業の成功。確かな富と社会的地位を築く時。" }
+        ];
+
+        let currentVoice = null;
+
+        function uranau() {
+            const display = document.getElementById('display');
+            const btn = document.getElementById('btn');
+            const nameText = document.getElementById('name');
+            const descText = document.getElementById('desc');
+            
+            btn.disabled = true;
+            nameText.innerText = "運命を占い中...";
+            descText.innerText = "深呼吸してお待ちください...";
+            
+            // 抽選中も back.png を表示
+            display.innerHTML = `<img src="back.png" onerror="this.parentElement.innerHTML='🃏'">`;
+            display.classList.add('shuffling');
+
+            if(currentVoice) { currentVoice.pause(); currentVoice.currentTime = 0; }
+            soundBGM.pause(); soundBGM.currentTime = 0;
+            soundRoll.currentTime = 0; soundRoll.play();
+
+            setTimeout(() => {
+                soundRoll.pause(); soundWin.currentTime = 0; soundWin.play();
+                display.classList.remove('shuffling');
+                display.classList.add('decided');
+
+                const result = cards[Math.floor(Math.random() * cards.length)];
+                display.innerHTML = `<img src="${result.id}.png" onerror="this.parentElement.innerHTML='🃏'">`;
+                
+                nameText.innerText = "✨ " + result.name + " ✨";
+                descText.innerText = result.msg;
+
+                setTimeout(() => {
+                    currentVoice = new Audio(`voice/${result.id}.wav`);
+                    currentVoice.play().catch(e => console.log("音声なし"));
+                }, CONFIG.timing.voiceDelay);
+
+                setTimeout(() => { soundBGM.play(); }, CONFIG.timing.bgmDelay);
+                
+                setTimeout(() => { display.classList.remove('decided'); btn.disabled = false; }, 1000);
+            }, CONFIG.timing.shuffleDuration); 
+        }
+
+        // --- 振動検知機能 ---
+        const specialCard = { name: "運命の裏側", img: "back.png", msg: "特別な力が働いています。" };
+        const SHAKE_THRESHOLD = 15;
+        let lastX, lastY, lastZ;
+
+        window.addEventListener('devicemotion', (event) => {
+            const acc = event.accelerationIncludingGravity;
+            if (!acc.x || !acc.y || !acc.z) return;
+            if (lastX !== undefined) {
+                let delta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
+                if (delta > SHAKE_THRESHOLD && !document.getElementById('btn').disabled) {
+                    showSpecialCard();
+                }
+            }
+            lastX = acc.x; lastY = acc.y; lastZ = acc.z;
+        });
+
+        function showSpecialCard() {
+            const display = document.getElementById('display');
+            const nameText = document.getElementById('name');
+            const descText = document.getElementById('desc');
+            display.classList.add('decided');
+            display.innerHTML = `<img src="${specialCard.img}" onerror="this.parentElement.innerHTML='🃏'">`;
+            nameText.innerText = "✨ " + specialCard.name + " ✨";
+            descText.innerText = specialCard.msg;
+            setTimeout(() => { display.classList.remove('decided'); }, CONFIG.timing.specialReset);
+        }
+    </script>
+</body>
+</html>
