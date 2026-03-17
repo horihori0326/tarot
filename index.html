@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="猫タロット">
     <link rel="apple-touch-icon" href="back.png">
     <title>究極・78枚フルデッキタロット（完全版）</title>
     <style>
@@ -33,19 +34,15 @@
 
     <script>
         // ==========================================================
-        // 【設定エリア】ここを書き換えて調整してください
+        // 【設定エリア】
         // ==========================================================
         const CONFIG = {
-            volume: {
-                roll: 0.3,  // シャッフル中の音量 (0.0〜1.0)
-                win: 0.3,   // 結果表示の音量 (0.0〜1.0)
-                bgm: 0.15   // BGMの音量 (0.0〜1.0)
-            },
-            timing: {
-                shuffleDuration: 2500, // 占っている時間 (ミリ秒)
-                voiceDelay: 1000,      // 音声が流れるまでの遅延 (ミリ秒)
-                bgmDelay: 500,         // BGMが流れ始める遅延 (ミリ秒)
-                specialReset: 2000     // 振動カードを表示しておく時間 (ミリ秒)
+            volume: { roll: 0.3, win: 0.3, bgm: 0.15 },
+            timing: { 
+                shuffleDuration: 2500, // 占っている時間（ミリ秒）
+                voiceDelay: 1000,      // 音声が流れるまでの遅延
+                bgmDelay: 1500,        // BGMが流れ始める遅延
+                specialReset: 2000     // 振動カードを表示しておく時間
             }
         };
 
@@ -139,20 +136,20 @@
 
         let currentVoice = null;
 
-       function uranau() {
+        function uranau() {
             const display = document.getElementById('display');
             const btn = document.getElementById('btn');
             const nameText = document.getElementById('name');
             const descText = document.getElementById('desc');
             
-            // 次に表示するカードを「ボタンを押した瞬間」に決めてしまう
+            // 1. ボタンを押した瞬間にカードを決定（タイムラグ解消用）
             const result = cards[Math.floor(Math.random() * cards.length)];
             
-            // 裏側で画像を先に読み込ませておく（これで表示の瞬間のラグを消す）
+            // 2. シャッフル中に裏側で画像をプリロード
             const preloadImg = new Image();
             preloadImg.src = `${result.id}.png`;
 
-            // iPhone対策
+            // 3. iPhone/iPad 対策：音源のロックを解除
             [soundWin, soundBGM].forEach(s => {
                 s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(() => {});
             });
@@ -169,16 +166,16 @@
             soundRoll.currentTime = 0;
             soundRoll.play().catch(() => {});
 
-            // シャッフル時間が終わった瞬間の処理
             setTimeout(() => {
-                soundRoll.pause();
+                soundRoll.pause(); 
                 soundWin.play().catch(() => {});
                 
                 display.classList.remove('shuffling');
                 display.classList.add('decided');
 
-                // ここで準備しておいたカードを出す（既に読み込み済みなので一瞬で出ます）
+                // 4. 準備済みの画像を表示（タイムラグなし）
                 display.innerHTML = `<img src="${result.id}.png" onerror="this.parentElement.innerHTML='🃏'">`;
+                
                 nameText.innerText = "✨ " + result.name + " ✨";
                 descText.innerText = result.msg;
 
@@ -202,7 +199,7 @@
 
         window.addEventListener('devicemotion', (event) => {
             const acc = event.accelerationIncludingGravity;
-            if (!acc.x || !acc.y || !acc.z) return;
+            if (!acc || !acc.x || !acc.y || !acc.z) return;
             if (lastX !== undefined) {
                 let delta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
                 if (delta > SHAKE_THRESHOLD && !document.getElementById('btn').disabled) {
@@ -217,7 +214,7 @@
             const nameText = document.getElementById('name');
             const descText = document.getElementById('desc');
             display.classList.add('decided');
-            display.innerHTML = `<img src="${specialCard.img}" onerror="this.parentElement.innerHTML='🃏'">`;
+            display.innerHTML = `<img src="${specialCard.img}">`;
             nameText.innerText = "✨ " + specialCard.name + " ✨";
             descText.innerText = specialCard.msg;
             setTimeout(() => { display.classList.remove('decided'); }, CONFIG.timing.specialReset);
