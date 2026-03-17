@@ -10,17 +10,41 @@
     <style>
         body { background-color: #0b0e14; color: #d4af37; text-align: center; font-family: "Hiragino Mincho ProN", "MS PMincho", serif; padding-top: 20px; margin: 0; }
         h1 { font-size: 28px; letter-spacing: 3px; margin-bottom: 10px; }
-        .card-area { width: 380px; height: 608px; border: 3px solid #d4af37; margin: 15px auto; border-radius: 18px; background-color: #1a1a2e; display: flex; align-items: center; justify-content: center; font-size: 100px; position: relative; transition: 0.3s; overflow: hidden; box-shadow: 0 0 30px rgba(212, 175, 55, 0.3); }
+        
+        .card-area { 
+            width: 380px; height: 608px; 
+            border: 3px solid #d4af37; 
+            margin: 15px auto; 
+            border-radius: 18px; 
+            background-color: #1a1a2e; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 100px; position: relative; transition: 0.3s; 
+            overflow: hidden; 
+            box-shadow: 0 0 30px rgba(212, 175, 55, 0.3); 
+        }
+
+        /* 抽選中の震え */
         .shuffling { animation: shuffle-shake 0.1s infinite; border-color: #fff; }
         @keyframes shuffle-shake { 0% { transform: translate(0,0); } 50% { transform: translate(-3px, 2px); } 100% { transform: translate(3px, -2px); } }
-        .card-area.decided::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(212,175,55,0.8) 40%, rgba(11,14,20,0) 70%); opacity: 0; animation: flash-light 0.7s ease-out; pointer-events: none; z-index: 10; }
-        @keyframes flash-light { 0% { opacity: 0; transform: scale(0.5); } 20% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(1); } }
+
+        /* 当選時のフラッシュ演出（最初の仕様に戻しました） */
+        .decided { animation: flash-effect 0.6s ease-out; }
+        @keyframes flash-effect { 0% { filter: brightness(3); transform: scale(1.05); } 100% { filter: brightness(1); transform: scale(1); } }
+
         img { width: 100%; height: 100%; object-fit: cover; }
-        button { background: linear-gradient(#d4af37, #aa8412); color: black; padding: 15px 45px; font-size: 22px; font-weight: bold; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.5); margin-top: 10px; }
+        
+        button { 
+            background: linear-gradient(#d4af37, #aa8412); color: black; 
+            padding: 15px 45px; font-size: 22px; font-weight: bold; 
+            border: none; border-radius: 50px; cursor: pointer; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5); margin-top: 10px; 
+        }
         button:hover { filter: brightness(1.1); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
         #name { font-size: 24px; margin: 15px 0 5px; }
         #desc { font-size: 18px; color: #eee; margin-top: 0; padding: 0 30px; min-height: 3em; line-height: 1.6; }
+        
         @media (max-width: 450px) { .card-area { width: 90vw; height: 144vw; } }
     </style>
 </head>
@@ -38,10 +62,8 @@
             timing: { shuffleDuration: 2500, voiceDelay: 1000, bgmDelay: 1500 }
         };
 
-        // 音源の定義（ここではまだ再生しない）
-        const soundRoll = new Audio('roll.mp3');
-        const soundWin = new Audio('win.mp3'); 
-        const soundBGM = new Audio('bgm.mp3'); 
+        // 事前に読み込まず、関数内で新しく作る方式に変更（iOSの音混ざり対策）
+        let soundRoll, soundWin, soundBGM, currentVoice;
 
         const cards = [
             { id: 0, name: "愚者", msg: "自由な精神で新しい旅へ！直感を信じて進んで。" },
@@ -124,70 +146,72 @@
             { id: 77, name: "ペンタクルのキング", msg: "実業の成功。確かな富と社会的地位を築く時。" }
         ];
 
-        let currentVoice = null;
-
         function uranau() {
             const display = document.getElementById('display');
             const btn = document.getElementById('btn');
             const nameText = document.getElementById('name');
             const descText = document.getElementById('desc');
             
-            // カード決定と画像プリロード
+            // 結果の決定と画像の準備
             const result = cards[Math.floor(Math.random() * cards.length)];
             const preloadImg = new Image();
             preloadImg.src = `${result.id}.png`;
 
-            // 【音ズレの根本対策】
-            // ユーザーがボタンを押した瞬間に「まずroll.mp3だけ」を音量設定して再生する
+            // ボタン無効化
+            btn.disabled = true;
+
+            // 【音ズレ解消】ボタンを押した瞬間は「抽選音」だけを作る
+            if (soundBGM) { soundBGM.pause(); }
+            if (currentVoice) { currentVoice.pause(); }
+
+            soundRoll = new Audio('roll.mp3');
             soundRoll.volume = CONFIG.volume.roll;
-            soundRoll.currentTime = 0;
             soundRoll.play().catch(() => {});
 
-            // このタイミングで、後で鳴らす音(Win/BGM)の再生「許可」だけ取っておく(再生はしない)
-            soundWin.load();
-            soundBGM.load();
-
-            btn.disabled = true;
+            // 表示のリセット
             nameText.innerText = "運命を占い中...";
             descText.innerText = "深呼吸してお待ちください...";
-            
             display.innerHTML = `<img src="back.png">`;
             display.classList.add('shuffling');
 
-            if(currentVoice) { currentVoice.pause(); currentVoice.currentTime = 0; }
-            soundBGM.pause();
-
-            // 指定秒数後にシャッフル終了
+            // シャッフル時間
             setTimeout(() => {
-                // シャッフル音を止め、当選音を鳴らす
-                soundRoll.pause(); 
+                // 1. シャッフル音を確実に止める
+                soundRoll.pause();
+                soundRoll = null;
+
+                // 2. 当選音を「ここで初めて」作って鳴らす
+                soundWin = new Audio('win.mp3');
                 soundWin.volume = CONFIG.volume.win;
                 soundWin.play().catch(() => {});
                 
+                // 3. 最初のフラッシュ演出を適用
                 display.classList.remove('shuffling');
-                display.classList.add('decided'); // 光の演出
+                display.classList.add('decided');
 
-                // カード表示
+                // 4. 画像を表示
                 display.innerHTML = `<img src="${result.id}.png" onerror="this.parentElement.innerHTML='🃏'">`;
                 nameText.innerText = "✨ " + result.name + " ✨";
                 descText.innerText = result.msg;
 
-                // 読み上げ
+                // 5. 読み上げ（少し遅らせる）
                 setTimeout(() => {
                     currentVoice = new Audio(`voice/${result.id}.wav`);
-                    currentVoice.play().catch(e => console.log("音声なし"));
+                    currentVoice.play().catch(() => {});
                 }, CONFIG.timing.voiceDelay);
 
-                // BGM開始
+                // 6. BGM再開（さらに少し遅らせる）
                 setTimeout(() => { 
+                    soundBGM = new Audio('bgm.mp3');
                     soundBGM.volume = CONFIG.volume.bgm;
-                    soundBGM.play().catch(e => console.log("BGMブロック")); 
+                    soundBGM.play().catch(() => {}); 
                 }, CONFIG.timing.bgmDelay);
                 
+                // 7. 演出終了後にボタンを戻す
                 setTimeout(() => { 
                     display.classList.remove('decided'); 
                     btn.disabled = false; 
-                }, 700); 
+                }, 1000); 
             }, CONFIG.timing.shuffleDuration); 
         }
     </script>
