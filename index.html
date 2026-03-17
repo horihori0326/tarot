@@ -41,9 +41,6 @@
         const soundRoll = new Audio('roll.mp3');
         const soundWin = new Audio('win.mp3'); 
         const soundBGM = new Audio('bgm.mp3'); 
-        soundRoll.volume = CONFIG.volume.roll;
-        soundWin.volume = CONFIG.volume.win;
-        soundBGM.volume = CONFIG.volume.bgm;
 
         const cards = [
             { id: 0, name: "愚者", msg: "自由な精神で新しい旅へ！直感を信じて進んで。" },
@@ -134,18 +131,33 @@
             const nameText = document.getElementById('name');
             const descText = document.getElementById('desc');
             
-            // 次のカードの決定とプリロード
             const result = cards[Math.floor(Math.random() * cards.length)];
             const preloadImg = new Image();
             preloadImg.src = `${result.id}.png`;
 
-            // 【音ズレ解消の肝】音源を一度だけ「無音」で鳴らしてiPadのロックを解除する。
-            // 順番待ちさせず、再生許可だけを即座に奪い取る
-            [soundWin, soundBGM].forEach(s => {
-                s.play().then(() => { 
-                    s.pause(); 
-                    s.currentTime = 0; 
-                }).catch(() => {});
+            // 【音ズレ解消の究極策】
+            // 1. 全ての音を「無音(volume=0)」にする
+            soundRoll.volume = 0;
+            soundWin.volume = 0;
+            soundBGM.volume = 0;
+
+            // 2. この瞬間に再生を開始して、iPadの再生許可をもらう
+            // （無音なので先出し音は聞こえません）
+            const unlockSounds = [soundRoll, soundWin, soundBGM].map(s => s.play());
+
+            Promise.all(unlockSounds).then(() => {
+                // 3. 許可が取れたら、一度止めて準備完了
+                soundRoll.pause(); soundRoll.currentTime = 0;
+                soundWin.pause(); soundWin.currentTime = 0;
+                soundBGM.pause(); soundBGM.currentTime = 0;
+
+                // 4. 改めて「抽選音」だけ音量を戻して再生
+                soundRoll.volume = CONFIG.volume.roll;
+                soundRoll.play().catch(() => {});
+            }).catch(() => {
+                // 万が一失敗しても抽選音だけはトライする
+                soundRoll.volume = CONFIG.volume.roll;
+                soundRoll.play().catch(() => {});
             });
 
             btn.disabled = true;
@@ -156,15 +168,14 @@
             display.classList.add('shuffling');
 
             if(currentVoice) { currentVoice.pause(); currentVoice.currentTime = 0; }
-            soundBGM.pause(); soundBGM.currentTime = 0;
-            
-            // 抽選音をスタート
-            soundRoll.currentTime = 0;
-            soundRoll.play().catch(() => {});
 
+            // 抽選終了後の処理
             setTimeout(() => {
                 soundRoll.pause(); 
-                soundWin.play().catch(() => {}); // ここで正しいタイミングで当選音が鳴る
+                
+                // 【正しいタイミングで音量を戻して鳴らす】
+                soundWin.volume = CONFIG.volume.win;
+                soundWin.play().catch(() => {});
                 
                 display.classList.remove('shuffling');
                 display.classList.add('decided');
@@ -179,6 +190,7 @@
                 }, CONFIG.timing.voiceDelay);
 
                 setTimeout(() => { 
+                    soundBGM.volume = CONFIG.volume.bgm;
                     soundBGM.play().catch(e => console.log("BGMブロック")); 
                 }, CONFIG.timing.bgmDelay);
                 
