@@ -29,21 +29,9 @@
     <button id="btn" onclick="uranau()">運命の1枚を引く</button>
 
     <script>
-        // ==========================================================
-        // 【設定エリア】ここを書き換えて調整してください
-        // ==========================================================
         const CONFIG = {
-            volume: {
-                roll: 0.3,  // シャッフル中の音量 (0.0〜1.0)
-                win: 0.3,   // 結果表示の音量 (0.0〜1.0)
-                bgm: 0.15   // BGMの音量 (0.0〜1.0)
-            },
-            timing: {
-                shuffleDuration: 2500, // 占っている時間 (ミリ秒)
-                voiceDelay: 1000,      // 音声が流れるまでの遅延 (ミリ秒)
-                bgmDelay: 1000,         // BGMが流れ始める遅延 (ミリ秒)
-                specialReset: 2000     // 振動カードを表示しておく時間 (ミリ秒)
-            }
+            volume: { roll: 0.3, win: 0.3, bgm: 0.15 },
+            timing: { shuffleDuration: 2500, voiceDelay: 1000, bgmDelay: 1500, specialReset: 2000 }
         };
 
         const soundRoll = new Audio('roll.mp3');
@@ -136,26 +124,34 @@
 
         let currentVoice = null;
 
-        function uranau() {
+       function uranau() {
             const display = document.getElementById('display');
             const btn = document.getElementById('btn');
             const nameText = document.getElementById('name');
             const descText = document.getElementById('desc');
             
+            // iPhone対策：ボタンクリック時に「決定音」と「BGM」の再生許可だけ取っておく
+            [soundWin, soundBGM].forEach(s => {
+                s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(() => {});
+            });
+
             btn.disabled = true;
             nameText.innerText = "運命を占い中...";
             descText.innerText = "深呼吸してお待ちください...";
             
-            // 抽選中も back.png を表示
             display.innerHTML = `<img src="back.png" onerror="this.parentElement.innerHTML='🃏'">`;
             display.classList.add('shuffling');
 
+            // 抽選音（ロール音）をここですぐに鳴らす
             if(currentVoice) { currentVoice.pause(); currentVoice.currentTime = 0; }
             soundBGM.pause(); soundBGM.currentTime = 0;
-            soundRoll.currentTime = 0; soundRoll.play();
+            soundRoll.currentTime = 0;
+            soundRoll.play().catch(() => {});
 
             setTimeout(() => {
-                soundRoll.pause(); soundWin.currentTime = 0; soundWin.play();
+                soundRoll.pause(); // 抽選時間が終わったら止める
+                soundWin.play().catch(() => {}); // 決定音を鳴らす
+                
                 display.classList.remove('shuffling');
                 display.classList.add('decided');
 
@@ -165,17 +161,20 @@
                 nameText.innerText = "✨ " + result.name + " ✨";
                 descText.innerText = result.msg;
 
+                // 読み上げ音声
                 setTimeout(() => {
                     currentVoice = new Audio(`voice/${result.id}.wav`);
                     currentVoice.play().catch(e => console.log("音声なし"));
                 }, CONFIG.timing.voiceDelay);
 
-                setTimeout(() => { soundBGM.play(); }, CONFIG.timing.bgmDelay);
+                // BGM開始
+                setTimeout(() => { 
+                    soundBGM.play().catch(e => console.log("BGMブロック")); 
+                }, CONFIG.timing.bgmDelay);
                 
                 setTimeout(() => { display.classList.remove('decided'); btn.disabled = false; }, 1000);
             }, CONFIG.timing.shuffleDuration); 
         }
-
         // --- 振動検知機能 ---
         const specialCard = { name: "運命の裏側", img: "back.png", msg: "特別な力が働いています。" };
         const SHAKE_THRESHOLD = 15;
@@ -183,7 +182,7 @@
 
         window.addEventListener('devicemotion', (event) => {
             const acc = event.accelerationIncludingGravity;
-            if (!acc.x || !acc.y || !acc.z) return;
+            if (!acc || !acc.x || !acc.y || !acc.z) return;
             if (lastX !== undefined) {
                 let delta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
                 if (delta > SHAKE_THRESHOLD && !document.getElementById('btn').disabled) {
